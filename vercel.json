@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/JobLens_Capstone_Project/project_full/frontend/index.html",
+      "permanent": false
+    }
+  ]
+}
