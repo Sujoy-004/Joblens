@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>JobLens — Job Market Insights & Salary Prediction</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0a0c10;
+    --surface:   #111318;
+    --border:    #1e2230;
+    --accent:    #5b7fff;
+    --accent2:   #ff6b6b;
+    --accent3:   #43e8b0;
+    --text:      #e8eaf0;
+    --muted:     #6b7280;
+    --card:      #13161f;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,12,16,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mode-banner {
+    display: none;
+    background: rgba(255, 107, 107, 0.12);
+    border-bottom: 1px solid rgba(255, 107, 107, 0.3);
+    color: #ffd7d7;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 2rem;
+    position: sticky;
+    top: 64px;
+    z-index: 90;
+  }
+
+  .mode-banner.show { display: block; }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--accent); }
+
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-left: 2rem;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--text); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    padding: 6rem 2rem 4rem;
+    max-width: 1100px;
+    margin: 0 auto;
+    z-index: 1;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(91,127,255,0.1);
+    border: 1px solid rgba(91,127,255,0.25);
+    padding: 0.3rem 0.8rem;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    max-width: 700px;
+  }
+
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .hero-sub {
+    margin-top: 1.2rem;
+    color: var(--muted);
+    font-size: 1.05rem;
+    max-width: 520px;
+    font-weight: 300;
+  }
+
+  /* ── PREDICTOR ── */
+  .predictor-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+    z-index: 1;
+    position: relative;
+  }
+
+  .predictor-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
+  }
+
+  @media (max-width: 768px) {
+    .predictor-card { grid-template-columns: 1fr; }
+  }
+
+  label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.7rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+
+  .predict-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.8rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .predict-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .predict-btn:active { transform: translateY(0); }
+
+  /* ── RESULT BANNER ── */
+  .result-banner {
+    display: none;
+    margin-top: 1.5rem;
+    background: linear-gradient(135deg, rgba(91,127,255,0.12), rgba(67,232,176,0.06));
+    border: 1px solid rgba(91,127,255,0.3);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    display: none;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .result-banner.show { display: flex; animation: fadeUp 0.4s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-salary {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.8rem;
+    color: var(--accent3);
+    letter-spacing: -0.03em;
+  }
+
+  .result-meta { color: var(--muted); font-size: 0.85rem; line-height: 1.8; }
+  .result-meta strong { color: var(--text); }
+
+  .cluster-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    background: rgba(255,107,107,0.12);
+    border: 1px solid rgba(255,107,107,0.3);
+    color: var(--accent2);
+    border-radius: 6px;
+    padding: 0.25rem 0.6rem;
+    margin-top: 0.4rem;
+  }
+
+  /* ── SECTION ── */
+  section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem 5rem;
+    z-index: 1;
+    position: relative;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.9rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.8rem;
+  }
+
+  /* ── GRID CARDS ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+  }
+
+  .chart-card h3 {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .chart-card canvas { width: 100% !important; }
+
+  .chart-card.full { grid-column: 1 / -1; }
+
+  /* ── CLUSTER TABLE ── */
+  .cluster-table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+  }
+
+  thead th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(30,34,48,0.6);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: rgba(91,127,255,0.04); }
+
+  tbody td {
+    padding: 0.75rem 1rem;
+    color: var(--text);
+  }
+
+  .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+  }
+
+  /* ── SIMILAR JOBS ── */
+  .similar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .sim-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    transition: border-color 0.2s;
+  }
+  .sim-card:hover { border-color: rgba(91,127,255,0.4); }
+
+  .sim-card .title {
+    font-size: 0.88rem;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+    color: var(--text);
+  }
+
+  .sim-card .salary {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--accent3);
+  }
+
+  .sim-card .exp {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    text-align: center;
+    padding: 2rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── LOADING ── */
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  @media (max-width: 640px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+
+  .stat-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+  }
+
+  .stat-box .val {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .stat-box .lbl {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Job<span>Lens</span></div>
+  <nav>
+    <a href="#predict">Predict</a>
+    <a href="#insights">Insights</a>
+    <a href="#clusters">Clusters</a>
+  </nav>
+</header>
+
+<div class="mode-banner" id="mode-banner">Demo mode: dashboard_data.json was not found, so sample data is being shown.</div>
+
+<div class="hero">
+  <div class="hero-tag">&#9679; Data Engineering + ML Capstone</div>
+  <h1>Decode the <em>Job Market.</em><br>Predict your Salary.</h1>
+  <p class="hero-sub">ML-powered insights on 3,700+ data science roles — salary prediction, skill clustering, and market trends.</p>
+</div>
+
+<!-- PREDICTOR -->
+<div class="predictor-wrap" id="predict">
+  <div class="predictor-card">
+    <div>
+      <label>Job Title / Role</label>
+      <input id="inp-title" list="title-list" placeholder="e.g. Data Scientist" autocomplete="off"/>
+      <datalist id="title-list"></datalist>
+    </div>
+    <div>
+      <label>Experience Level</label>
+      <select id="inp-exp">
+        <option value="EN">Entry-Level (EN)</option>
+        <option value="MI" selected>Mid-Level (MI)</option>
+        <option value="SE">Senior (SE)</option>
+        <option value="EX">Executive (EX)</option>
+      </select>
+    </div>
+    <div>
+      <label>Company Size</label>
+      <select id="inp-size">
+        <option value="S">Small</option>
+        <option value="M" selected>Medium</option>
+        <option value="L">Large</option>
+      </select>
+    </div>
+    <button class="predict-btn" onclick="runPredict()">Predict →</button>
+  </div>
+
+  <div class="result-banner" id="result-banner">
+    <div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem;">Predicted Annual Salary</div>
+      <div class="result-salary" id="res-salary">$—</div>
+    </div>
+    <div class="result-meta" id="res-meta"></div>
+  </div>
+
+  <div id="similar-section" style="display:none;margin-top:2rem;">
+    <div class="section-label">Similar Roles in Same Cluster</div>
+    <div class="similar-grid" id="similar-grid"></div>
+  </div>
+</div>
+
+<!-- INSIGHTS -->
+<section id="insights">
+  <div class="section-label">Market Analytics</div>
+  <h2>Salary Insights</h2>
+
+  <div class="stats-row" id="stats-row">
+    <div class="stat-box"><div class="val" id="st-total">—</div><div class="lbl">Total Roles Analysed</div></div>
+    <div class="stat-box"><div class="val" id="st-median">—</div><div class="lbl">Median Salary (USD)</div></div>
+    <div class="stat-box"><div class="val" id="st-top">—</div><div class="lbl">Top Role Count</div></div>
+    <div class="stat-box"><div class="val" id="st-remote">—</div><div class="lbl">Avg Remote Ratio %</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>Median Salary by Experience Level</h3>
+      <canvas id="chart-exp" height="240"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Top 10 Job Titles by Count</h3>
+      <canvas id="chart-jobs" height="240"></canvas>
+    </div>
+    <div class="chart-card full">
+      <h3>Cluster Scatter — PCA Projection (Sample 500)</h3>
+      <canvas id="chart-scatter" height="320"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- CLUSTERS -->
+<section id="clusters">
+  <div class="section-label">Job Clustering</div>
+  <h2>Skill-Based Job Groups</h2>
+  <div class="cluster-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Cluster</th>
+          <th>Count</th>
+          <th>Mean Salary</th>
+          <th>Avg Remote %</th>
+        </tr>
+      </thead>
+      <tbody id="cluster-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  JobLens — Capstone Project &nbsp;·&nbsp; Built with Python · scikit-learn · Chart.js &nbsp;·&nbsp; Deployed on Vercel
+</footer>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG — change path if hosting separately
+// ─────────────────────────────────────────────
+const DATA_PATH = './dashboard_data.json';
+
+// ── FALLBACK DEMO DATA (runs without server) ──
+const DEMO = {
+  salary_by_experience: {"EN":68000,"MI":105000,"SE":145000,"EX":195000},
+  top_jobs: {
+    "DATA SCIENTIST":820,"DATA ENGINEER":610,"ML ENGINEER":480,
+    "DATA ANALYST":430,"ANALYTICS ENGINEER":290,"RESEARCH SCIENTIST":250,
+    "BI ANALYST":190,"DATA ARCHITECT":160,"NLP ENGINEER":140,"AI RESEARCHER":120
+  },
+  cluster_summary: [
+    {cluster_label:"Entry-Level Analysts", count:740, mean_salary:68000, remote_avg:42},
+    {cluster_label:"Senior ML Engineers",  count:610, mean_salary:153000,remote_avg:71},
+    {cluster_label:"Cloud & Data Platform",count:520, mean_salary:128000,remote_avg:65},
+    {cluster_label:"Business Intelligence",count:490, mean_salary:96000, remote_avg:38},
+    {cluster_label:"Research & NLP",       count:310, mean_salary:144000,remote_avg:80}
+  ],
+  scatter: (()=>{
+    const labels = [0,1,2,3,4];
+    const colors = ["#5b7fff","#ff6b6b","#43e8b0","#f5a623","#c084fc"];
+    const titles = ["Entry-Level Analysts","Senior ML Engineers","Cloud & Data Platform","Business Intelligence","Research & NLP"];
+    const pts = [];
+    for(let i=0;i<500;i++){
+      const c = labels[Math.floor(Math.random()*5)];
+      pts.push({pca_x:(Math.random()-0.5)*6+c*0.8, pca_y:(Math.random()-0.5)*6+c*0.5,
+                cluster:c, cluster_label:titles[c],
+                job_title:"Sample Role", salary_in_usd:60000+c*18000+Math.random()*20000});
+    }
+    return pts;
+  })(),
+  predictions: [
+    {job_title:"DATA SCIENTIST",   experience_level:"MI",company_size:"M",actual_salary:110000,predicted_salary:107500},
+    {job_title:"ML ENGINEER",      experience_level:"SE",company_size:"L",actual_salary:155000,predicted_salary:149200},
+    {job_title:"DATA ANALYST",     experience_level:"EN",company_size:"S",actual_salary:62000, predicted_salary:65800},
+    {job_title:"DATA ENGINEER",    experience_level:"SE",company_size:"M",actual_salary:138000,predicted_salary:141000},
+    {job_title:"RESEARCH SCIENTIST",experience_level:"EX",company_size:"L",actual_salary:200000,predicted_salary:193500}
+  ]
+};
+
+const CLUSTER_COLORS = ["#5b7fff","#ff6b6b","#43e8b0","#f5a623","#c084fc"];
+let DATA = null;
+
+async function loadData() {
+  try {
+    const r = await fetch(DATA_PATH);
+    if (!r.ok) throw new Error('no file');
+    DATA = await r.json();
+    document.getElementById('mode-banner').classList.remove('show');
+  } catch {
+    DATA = DEMO;
+    document.getElementById('mode-banner').classList.add('show');
+    console.warn('dashboard_data.json not found at', DATA_PATH, '- using demo data');
+  }
+  init();
+}
+
+function fmt(n) {
+  if(n>=1000) return '$'+(n/1000).toFixed(0)+'k';
+  return '$'+n;
+}
+
+function init() {
+  buildTitleList();
+  buildStats();
+  buildExpChart();
+  buildJobsChart();
+  buildScatterChart();
+  buildClusterTable();
+}
+
+function buildTitleList() {
+  const dl = document.getElementById('title-list');
+  const titles = [...new Set(DATA.predictions.map(p=>p.job_title))];
+  titles.forEach(t=>{
+    const o = document.createElement('option');
+    o.value = t; dl.appendChild(o);
+  });
+}
+
+function buildStats() {
+  const preds = DATA.predictions;
+  const salaries = preds.map(p=>p.actual_salary);
+  const median = salaries.sort((a,b)=>a-b)[Math.floor(salaries.length/2)]||105000;
+  const topRole = Object.entries(DATA.top_jobs).sort((a,b)=>b[1]-a[1])[0];
+  const remoteAvg = DATA.cluster_summary.reduce((s,c)=>s+c.remote_avg,0)/DATA.cluster_summary.length;
+
+  document.getElementById('st-total').textContent  = (DATA.scatter.length||3700).toLocaleString();
+  document.getElementById('st-median').textContent  = fmt(median);
+  document.getElementById('st-top').textContent    = topRole ? topRole[1].toLocaleString() : '—';
+  document.getElementById('st-remote').textContent = remoteAvg.toFixed(0)+'%';
+}
+
+function buildExpChart() {
+  const ctx = document.getElementById('chart-exp').getContext('2d');
+  const labels = Object.keys(DATA.salary_by_experience);
+  const vals   = Object.values(DATA.salary_by_experience);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Median Salary (USD)',
+        data: vals,
+        backgroundColor: ['#5b7fff99','#5b7fffcc','#5b7fff','#43e8b0'],
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => '$'+ctx.raw.toLocaleString() } }
+      },
+      scales: {
+        x: { grid: { color: '#1e2230' }, ticks: { color: '#6b7280' } },
+        y: { grid: { color: '#1e2230' }, ticks: { color: '#6b7280',
+               callback: v => '$'+(v/1000)+'k' } }
+      }
+    }
+  });
+}
+
+function buildJobsChart() {
+  const ctx = document.getElementById('chart-jobs').getContext('2d');
+  const entries = Object.entries(DATA.top_jobs).slice(0,10);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: entries.map(([k])=>k.length>22?k.slice(0,22)+'…':k),
+      datasets: [{
+        label: 'Count',
+        data: entries.map(([,v])=>v),
+        backgroundColor: '#ff6b6b88',
+        borderColor: '#ff6b6b',
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#1e2230' }, ticks: { color: '#6b7280' } },
+        y: { grid: { color: '#1e2230' }, ticks: { color: '#6b7280', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function buildScatterChart() {
+  const ctx = document.getElementById('chart-scatter').getContext('2d');
+  const grouped = {};
+  DATA.scatter.forEach(p=>{
+    if(!grouped[p.cluster]) grouped[p.cluster]={label:p.cluster_label, pts:[]};
+    grouped[p.cluster].pts.push({x:p.pca_x, y:p.pca_y});
+  });
+  const datasets = Object.entries(grouped).map(([c,g])=>({
+    label: g.label,
+    data: g.pts,
+    backgroundColor: CLUSTER_COLORS[+c]+'88',
+    pointRadius: 3,
+    pointHoverRadius: 5
+  }));
+  new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#6b7280', boxWidth: 12, font: {size:11} } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label } }
+      },
+      scales: {
+        x: { grid: { color: '#1e2230' }, ticks: { color: '#6b7280' }, title: { display:true, text:'PCA Component 1', color:'#6b7280' } },
+        y: { grid: { color: '#1e2230' }, ticks: { color: '#6b7280' }, title: { display:true, text:'PCA Component 2', color:'#6b7280' } }
+      }
+    }
+  });
+}
+
+function buildClusterTable() {
+  const tbody = document.getElementById('cluster-tbody');
+  DATA.cluster_summary.forEach((c, i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="dot" style="background:${CLUSTER_COLORS[i]}"></span>${c.cluster_label}</td>
+      <td>${c.count.toLocaleString()}</td>
+      <td>$${Math.round(c.mean_salary).toLocaleString()}</td>
+      <td>${c.remote_avg.toFixed(0)}%</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function runPredict() {
+  const title  = document.getElementById('inp-title').value.trim().toUpperCase() || 'DATA SCIENTIST';
+  const exp    = document.getElementById('inp-exp').value;
+  const size   = document.getElementById('inp-size').value;
+
+  // Lookup closest match from predictions data
+  let match = DATA.predictions.find(p =>
+    (p.job_title.includes(title) || title.includes(p.job_title)) &&
+    p.experience_level === exp &&
+    p.company_size === size
+  );
+
+  if(!match) match = DATA.predictions.find(p => p.experience_level === exp) || DATA.predictions[0];
+
+  // Adjust base with simple heuristic if no exact match
+  const expMult = {EN:0.7, MI:1.0, SE:1.35, EX:1.75};
+  const sizeMult = {S:0.88, M:1.0, L:1.12};
+  const base = match.predicted_salary * (expMult[exp]||1) * (sizeMult[size]||1);
+  const salary = Math.round(base / 500) * 500;
+
+  const banner = document.getElementById('result-banner');
+  document.getElementById('res-salary').textContent = '$'+salary.toLocaleString();
+
+  const cluster = DATA.cluster_summary.find(c => c.cluster_label === match.cluster_label) || DATA.cluster_summary[0];
+
+  document.getElementById('res-meta').innerHTML = `
+    <strong>${title}</strong><br>
+    Experience: ${exp} &nbsp;·&nbsp; Company Size: ${size}<br>
+    Range: $${(salary*0.85).toLocaleString()} – $${(salary*1.15).toLocaleString()}<br>
+    <span class="cluster-badge">${cluster.cluster_label}</span>
+  `;
+
+  banner.classList.add('show');
+
+  // Similar jobs
+  const grid = document.getElementById('similar-grid');
+  grid.innerHTML = '';
+  const similar = DATA.predictions.filter(p =>
+    p.cluster === match.cluster &&
+    p.experience_level === exp &&
+    p.job_title !== match.job_title
+  ).slice(0,6);
+  similar.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'sim-card';
+    card.innerHTML = `
+      <div class="title">${p.job_title}</div>
+      <div class="salary">$${p.predicted_salary.toLocaleString()}</div>
+      <div class="exp">${p.experience_level} · ${p.company_size}</div>
+    `;
+    grid.appendChild(card);
+  });
+  if (!similar.length) {
+    grid.innerHTML = '<div class="loading">No similar roles found for that cluster and experience band.</div>';
+  }
+  document.getElementById('similar-section').style.display='block';
+
+  // Scroll to result
+  setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'nearest'}),100);
+}
+
+loadData();
+</script>
+</body>
+</html>
