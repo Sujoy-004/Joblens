@@ -572,11 +572,11 @@ const DEMO = {
     return pts;
   })(),
   predictions: [
-    {job_title:"DATA SCIENTIST",   experience_level:"MI",company_size:"M",actual_salary:110000,predicted_salary:107500},
-    {job_title:"ML ENGINEER",      experience_level:"SE",company_size:"L",actual_salary:155000,predicted_salary:149200},
-    {job_title:"DATA ANALYST",     experience_level:"EN",company_size:"S",actual_salary:62000, predicted_salary:65800},
-    {job_title:"DATA ENGINEER",    experience_level:"SE",company_size:"M",actual_salary:138000,predicted_salary:141000},
-    {job_title:"RESEARCH SCIENTIST",experience_level:"EX",company_size:"L",actual_salary:200000,predicted_salary:193500}
+    {job_title:"DATA SCIENTIST",   experience_level:"MI",company_size:"M",cluster:0,cluster_label:"Entry-Level Analysts",actual_salary:110000,predicted_salary:107500},
+    {job_title:"ML ENGINEER",      experience_level:"SE",company_size:"L",cluster:1,cluster_label:"Senior ML Engineers",actual_salary:155000,predicted_salary:149200},
+    {job_title:"DATA ANALYST",     experience_level:"EN",company_size:"S",cluster:0,cluster_label:"Entry-Level Analysts",actual_salary:62000, predicted_salary:65800},
+    {job_title:"DATA ENGINEER",    experience_level:"SE",company_size:"M",cluster:1,cluster_label:"Senior ML Engineers",actual_salary:138000,predicted_salary:141000},
+    {job_title:"RESEARCH SCIENTIST",experience_level:"EX",company_size:"L",cluster:4,cluster_label:"Research & NLP",actual_salary:200000,predicted_salary:193500}
   ]
 };
 
@@ -600,6 +600,19 @@ async function loadData() {
 function fmt(n) {
   if(n>=1000) return '$'+(n/1000).toFixed(0)+'k';
   return '$'+n;
+}
+
+function getTotalRoles() {
+  if (Number.isFinite(DATA.total_roles)) return DATA.total_roles;
+
+  const clusterTotal = Array.isArray(DATA.cluster_summary)
+    ? DATA.cluster_summary.reduce((sum, cluster) => sum + (Number(cluster.count) || 0), 0)
+    : 0;
+
+  if (clusterTotal) return clusterTotal;
+  if (Array.isArray(DATA.scatter) && DATA.scatter.length) return DATA.scatter.length;
+  if (Array.isArray(DATA.predictions) && DATA.predictions.length) return DATA.predictions.length;
+  return 0;
 }
 
 function init() {
@@ -627,7 +640,7 @@ function buildStats() {
   const topRole = Object.entries(DATA.top_jobs).sort((a,b)=>b[1]-a[1])[0];
   const remoteAvg = DATA.cluster_summary.reduce((s,c)=>s+c.remote_avg,0)/DATA.cluster_summary.length;
 
-  document.getElementById('st-total').textContent  = (DATA.scatter.length||3700).toLocaleString();
+  document.getElementById('st-total').textContent  = getTotalRoles().toLocaleString();
   document.getElementById('st-median').textContent  = fmt(median);
   document.getElementById('st-top').textContent    = topRole ? topRole[1].toLocaleString() : '—';
   document.getElementById('st-remote').textContent = remoteAvg.toFixed(0)+'%';
@@ -665,7 +678,7 @@ function buildExpChart() {
 
 function buildJobsChart() {
   const ctx = document.getElementById('chart-jobs').getContext('2d');
-  const entries = Object.entries(DATA.top_jobs).slice(0,10);
+  const entries = Object.entries(DATA.top_jobs).sort((a, b) => b[1] - a[1]).slice(0,10);
   new Chart(ctx, {
     type: 'bar',
     data: {
@@ -775,7 +788,7 @@ function runPredict() {
   const grid = document.getElementById('similar-grid');
   grid.innerHTML = '';
   const similar = DATA.predictions.filter(p =>
-    p.cluster === match.cluster &&
+    (p.cluster === match.cluster || p.cluster_label === match.cluster_label) &&
     p.experience_level === exp &&
     p.job_title !== match.job_title
   ).slice(0,6);
