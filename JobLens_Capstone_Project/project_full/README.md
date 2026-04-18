@@ -52,8 +52,7 @@ Run all cells top to bottom. Outputs are saved automatically.
 ### 3. Deploy frontend
 - Recommended production root: `JobLens_Capstone_Project/project_full/frontend`
 - Working CLI deploy command: `npx vercel deploy JobLens_Capstone_Project/project_full/frontend --prod --yes --public --force`
-- Live production URL: https://frontend-iofk7l8ws-sujoys-projects-01c97fec.vercel.app
-- Live alias URL: https://frontend-self-three-d4teea7mxf.vercel.app
+- Live production URL: https://joblens-sujoys-projects-01c97fec.vercel.app
 - If you use the Vercel dashboard, set the project root directory to `JobLens_Capstone_Project/project_full/frontend` instead of the repository root
 - The app loads `dashboard_data.json` with a relative fetch, so the file must stay beside `index.html`
 - The live dashboard now shows 2,536 cleaned roles from the exported JSON, so the hero copy and stats stay consistent
