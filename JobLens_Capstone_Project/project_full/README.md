@@ -50,14 +50,15 @@ jupyter notebook job_market_pipeline.ipynb
 Run all cells top to bottom. Outputs are saved automatically.
 
 ### 3. Deploy frontend
-- Live deployment: [https://joblens-ochre.vercel.app](https://joblens-ochre.vercel.app)
-- Connect the repository root to [Vercel](https://vercel.com)
-- Keep the default static deploy settings; no build command is required
-- The root `vercel.json` rewrites `/` and `/dashboard_data.json` to the deployable frontend at `/JobLens_Capstone_Project/project_full/frontend/index.html`
-- The app still loads `dashboard_data.json` from the frontend folder, but the rewrite keeps the public URL clean and the relative fetch working
+- Recommended production root: `JobLens_Capstone_Project/project_full/frontend`
+- Working CLI deploy command: `npx vercel deploy JobLens_Capstone_Project/project_full/frontend --prod --yes --public --force`
+- If you use the Vercel dashboard, set the project root directory to `JobLens_Capstone_Project/project_full/frontend` instead of the repository root
+- The app loads `dashboard_data.json` with a relative fetch, so the file must stay beside `index.html`
+- The live dashboard now shows 2,536 cleaned roles from the exported JSON, so the hero copy and stats stay consistent
+- The predictor is strict about unsupported titles; it shows a no-match state instead of inventing a salary
 - For a local demo, open `JobLens_Capstone_Project/project_full/frontend/index.html` directly in a browser
 
-The notebook writes `dashboard_data.json` into both `/outputs/` and `/frontend/`, so the deployed static site can load the real data without a backend.
+The notebook writes `dashboard_data.json` into both `/outputs/` and `/frontend/`, but only the frontend copy is needed for deployment.
 
 ---
 
@@ -89,6 +90,7 @@ The notebook writes `dashboard_data.json` into both `/outputs/` and `/frontend/`
 - **Market Analytics** — Median salary by experience, top-10 job titles bar chart
 - **Similar Jobs** — Roles in the same predicted cluster shown post-prediction
 - **Zero backend** — All inference uses pre-exported JSON; runs on Vercel free tier
+- **Input validation** — Unsupported or vague titles are rejected clearly instead of being forced into a random fallback
 
 ---
 

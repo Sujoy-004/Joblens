@@ -96,6 +96,49 @@
   }
   nav a:hover { color: var(--text); }
 
+  .predict-hint {
+    margin-top: 0.5rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .prediction-alert {
+    display: none;
+    margin-top: 1rem;
+    background: rgba(255, 107, 107, 0.08);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    border-radius: 12px;
+    color: #ffd7d7;
+    padding: 0.9rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .prediction-alert.show { display: block; }
+
+  .match-badge {
+    display: inline-block;
+    margin-top: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+
+  .match-badge.exact {
+    background: rgba(67, 232, 176, 0.1);
+    border-color: rgba(67, 232, 176, 0.25);
+    color: #aaf3d9;
+  }
+
+  .match-badge.closest {
+    background: rgba(245, 166, 35, 0.1);
+    border-color: rgba(245, 166, 35, 0.25);
+    color: #ffdca6;
+  }
+
   /* ── HERO ── */
   .hero {
     position: relative;
@@ -404,6 +447,54 @@
 
   @media (max-width: 640px) { .stats-row { grid-template-columns: 1fr 1fr; } }
 
+  @media (max-width: 640px) {
+    header {
+      padding: 0 1rem;
+      height: 58px;
+    }
+
+    nav {
+      display: none;
+    }
+
+    .hero {
+      padding: 2.25rem 1rem 1.25rem;
+    }
+
+    .hero-sub {
+      font-size: 0.98rem;
+      max-width: none;
+    }
+
+    .predictor-wrap,
+    section {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .predictor-card {
+      padding: 1rem;
+    }
+
+    .result-banner {
+      padding: 1rem;
+      gap: 1rem;
+    }
+
+    .stats-row {
+      grid-template-columns: 1fr;
+      margin-bottom: 2rem;
+    }
+
+    .similar-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stat-box .val {
+      font-size: 1.55rem;
+    }
+  }
+
   .stat-box {
     background: var(--card);
     border: 1px solid var(--border);
@@ -441,7 +532,7 @@
 <div class="hero">
   <div class="hero-tag">&#9679; Data Engineering + ML Capstone</div>
   <h1>Decode the <em>Job Market.</em><br>Predict your Salary.</h1>
-  <p class="hero-sub">ML-powered insights on 3,700+ data science roles — salary prediction, skill clustering, and market trends.</p>
+  <p class="hero-sub">ML-powered insights on <span id="hero-total">2,536</span> cleaned roles — salary prediction, skill clustering, and market trends.</p>
 </div>
 
 <!-- PREDICTOR -->
@@ -451,6 +542,7 @@
       <label>Job Title / Role</label>
       <input id="inp-title" list="title-list" placeholder="e.g. Data Scientist" autocomplete="off"/>
       <datalist id="title-list"></datalist>
+      <div class="predict-hint">Pick a title from the suggestions for a reliable prediction.</div>
     </div>
     <div>
       <label>Experience Level</label>
@@ -479,6 +571,8 @@
     </div>
     <div class="result-meta" id="res-meta"></div>
   </div>
+
+  <div class="prediction-alert" id="prediction-alert" role="alert"></div>
 
   <div id="similar-section" style="display:none;margin-top:2rem;">
     <div class="section-label">Similar Roles in Same Cluster</div>
@@ -583,14 +677,132 @@ const DEMO = {
 const CLUSTER_COLORS = ["#5b7fff","#ff6b6b","#43e8b0","#f5a623","#c084fc"];
 let DATA = null;
 
+function normalizeText(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+function safeNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeClusterSummary(items) {
+  return items.map(item => ({
+    cluster_label: String(item?.cluster_label ?? 'Unknown'),
+    count: safeNumber(item?.count),
+    mean_salary: safeNumber(item?.mean_salary),
+    remote_avg: safeNumber(item?.remote_avg)
+  })).filter(item => item.cluster_label !== 'Unknown');
+}
+
+function normalizeScatter(items) {
+  return items.map(item => ({
+    pca_x: safeNumber(item?.pca_x),
+    pca_y: safeNumber(item?.pca_y),
+    cluster: safeNumber(item?.cluster),
+    cluster_label: String(item?.cluster_label ?? 'Unknown'),
+    job_title: normalizeText(item?.job_title),
+    salary_in_usd: safeNumber(item?.salary_in_usd)
+  })).filter(item => item.cluster_label !== 'Unknown');
+}
+
+function normalizePredictions(items) {
+  return items.map(item => ({
+    job_title: normalizeText(item?.job_title),
+    experience_level: normalizeText(item?.experience_level),
+    company_size: normalizeText(item?.company_size),
+    cluster: safeNumber(item?.cluster),
+    cluster_label: String(item?.cluster_label ?? 'Unknown'),
+    actual_salary: safeNumber(item?.actual_salary),
+    predicted_salary: safeNumber(item?.predicted_salary)
+  })).filter(item => item.job_title && item.cluster_label !== 'Unknown');
+}
+
+function normalizeData(source) {
+  const data = source && typeof source === 'object' ? source : {};
+  const salaryByExperience = data.salary_by_experience && typeof data.salary_by_experience === 'object'
+    ? data.salary_by_experience
+    : DEMO.salary_by_experience;
+  const topJobs = data.top_jobs && typeof data.top_jobs === 'object'
+    ? data.top_jobs
+    : DEMO.top_jobs;
+  const clusterSummarySource = Array.isArray(data.cluster_summary) && data.cluster_summary.length
+    ? data.cluster_summary
+    : DEMO.cluster_summary;
+  const scatterSource = Array.isArray(data.scatter) && data.scatter.length ? data.scatter : DEMO.scatter;
+  const predictionsSource = Array.isArray(data.predictions) && data.predictions.length ? data.predictions : DEMO.predictions;
+
+  return {
+    salary_by_experience: salaryByExperience,
+    top_jobs: topJobs,
+    cluster_summary: normalizeClusterSummary(clusterSummarySource),
+    scatter: normalizeScatter(scatterSource),
+    predictions: normalizePredictions(predictionsSource)
+  };
+}
+
+function showPredictionAlert(message) {
+  const alertBox = document.getElementById('prediction-alert');
+  alertBox.textContent = message;
+  alertBox.classList.add('show');
+}
+
+function clearPredictionAlert() {
+  const alertBox = document.getElementById('prediction-alert');
+  alertBox.textContent = '';
+  alertBox.classList.remove('show');
+}
+
+function clearPredictionResult() {
+  const banner = document.getElementById('result-banner');
+  const similarSection = document.getElementById('similar-section');
+  const grid = document.getElementById('similar-grid');
+  document.getElementById('res-salary').textContent = '$—';
+  document.getElementById('res-meta').innerHTML = '';
+  banner.classList.remove('show');
+  similarSection.style.display = 'none';
+  grid.innerHTML = '';
+}
+
+function scorePredictionMatch(row, exp, size) {
+  let score = 0;
+  if (row.experience_level === exp) score += 2;
+  if (row.company_size === size) score += 1;
+  return score;
+}
+
+function selectPrediction(title, exp, size) {
+  const exact = DATA.predictions.find(p =>
+    p.job_title === title &&
+    p.experience_level === exp &&
+    p.company_size === size
+  );
+
+  if (exact) {
+    return { match: exact, mode: 'exact' };
+  }
+
+  const sameTitle = DATA.predictions.filter(p => p.job_title === title);
+  if (!sameTitle.length) {
+    return null;
+  }
+
+  const ordered = sameTitle
+    .slice()
+    .sort((a, b) => scorePredictionMatch(b, exp, size) - scorePredictionMatch(a, exp, size));
+
+  return { match: ordered[0], mode: 'closest' };
+}
+
 async function loadData() {
   try {
     const r = await fetch(DATA_PATH);
     if (!r.ok) throw new Error('no file');
-    DATA = await r.json();
+    DATA = normalizeData(await r.json());
+    if (!DATA.predictions.length || !DATA.cluster_summary.length) throw new Error('invalid schema');
     document.getElementById('mode-banner').classList.remove('show');
   } catch {
-    DATA = DEMO;
+    DATA = normalizeData(DEMO);
     document.getElementById('mode-banner').classList.add('show');
     console.warn('dashboard_data.json not found at', DATA_PATH, '- using demo data');
   }
@@ -626,7 +838,7 @@ function init() {
 
 function buildTitleList() {
   const dl = document.getElementById('title-list');
-  const titles = [...new Set(DATA.predictions.map(p=>p.job_title))];
+  const titles = [...new Set(DATA.predictions.map(p => p.job_title).filter(Boolean))];
   titles.forEach(t=>{
     const o = document.createElement('option');
     o.value = t; dl.appendChild(o);
@@ -635,11 +847,12 @@ function buildTitleList() {
 
 function buildStats() {
   const preds = DATA.predictions;
-  const salaries = preds.map(p=>p.actual_salary);
-  const median = salaries.sort((a,b)=>a-b)[Math.floor(salaries.length/2)]||105000;
+  const salaries = preds.map(p => p.actual_salary).filter(Number.isFinite).sort((a, b) => a - b);
+  const median = salaries.length ? salaries[Math.floor(salaries.length / 2)] : 105000;
   const topRole = Object.entries(DATA.top_jobs).sort((a,b)=>b[1]-a[1])[0];
   const remoteAvg = DATA.cluster_summary.reduce((s,c)=>s+c.remote_avg,0)/DATA.cluster_summary.length;
 
+  document.getElementById('hero-total').textContent = getTotalRoles().toLocaleString();
   document.getElementById('st-total').textContent  = getTotalRoles().toLocaleString();
   document.getElementById('st-median').textContent  = fmt(median);
   document.getElementById('st-top').textContent    = topRole ? topRole[1].toLocaleString() : '—';
@@ -648,8 +861,8 @@ function buildStats() {
 
 function buildExpChart() {
   const ctx = document.getElementById('chart-exp').getContext('2d');
-  const labels = Object.keys(DATA.salary_by_experience);
-  const vals   = Object.values(DATA.salary_by_experience);
+  const labels = Object.keys(DATA.salary_by_experience || {});
+  const vals   = Object.values(DATA.salary_by_experience || {});
   new Chart(ctx, {
     type: 'bar',
     data: {
@@ -678,7 +891,7 @@ function buildExpChart() {
 
 function buildJobsChart() {
   const ctx = document.getElementById('chart-jobs').getContext('2d');
-  const entries = Object.entries(DATA.top_jobs).sort((a, b) => b[1] - a[1]).slice(0,10);
+  const entries = Object.entries(DATA.top_jobs || {}).sort((a, b) => b[1] - a[1]).slice(0,10);
   new Chart(ctx, {
     type: 'bar',
     data: {
@@ -708,7 +921,7 @@ function buildJobsChart() {
 function buildScatterChart() {
   const ctx = document.getElementById('chart-scatter').getContext('2d');
   const grouped = {};
-  DATA.scatter.forEach(p=>{
+  (DATA.scatter || []).forEach(p=>{
     if(!grouped[p.cluster]) grouped[p.cluster]={label:p.cluster_label, pts:[]};
     grouped[p.cluster].pts.push({x:p.pca_x, y:p.pca_y});
   });
@@ -738,7 +951,7 @@ function buildScatterChart() {
 
 function buildClusterTable() {
   const tbody = document.getElementById('cluster-tbody');
-  DATA.cluster_summary.forEach((c, i)=>{
+  (DATA.cluster_summary || []).forEach((c, i)=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="dot" style="background:${CLUSTER_COLORS[i]}"></span>${c.cluster_label}</td>
@@ -751,20 +964,28 @@ function buildClusterTable() {
 }
 
 function runPredict() {
-  const title  = document.getElementById('inp-title').value.trim().toUpperCase() || 'DATA SCIENTIST';
+  clearPredictionAlert();
+  const rawTitle = document.getElementById('inp-title').value;
+  const title = normalizeText(rawTitle);
   const exp    = document.getElementById('inp-exp').value;
   const size   = document.getElementById('inp-size').value;
 
-  // Lookup closest match from predictions data
-  let match = DATA.predictions.find(p =>
-    (p.job_title.includes(title) || title.includes(p.job_title)) &&
-    p.experience_level === exp &&
-    p.company_size === size
-  );
+  if (!title) {
+    clearPredictionResult();
+    showPredictionAlert('Enter a job title or choose one from the suggestions to get a reliable prediction.');
+    return;
+  }
 
-  if(!match) match = DATA.predictions.find(p => p.experience_level === exp) || DATA.predictions[0];
+  const selection = selectPrediction(title, exp, size);
+  if (!selection) {
+    clearPredictionResult();
+    showPredictionAlert(`No confident match for "${rawTitle.trim() || 'that title'}". Pick a supported role from the suggestions.`);
+    return;
+  }
 
-  // Adjust base with simple heuristic if no exact match
+  const { match, mode } = selection;
+
+  // Adjust base with simple heuristic only after we have a supported title.
   const expMult = {EN:0.7, MI:1.0, SE:1.35, EX:1.75};
   const sizeMult = {S:0.88, M:1.0, L:1.12};
   const base = match.predicted_salary * (expMult[exp]||1) * (sizeMult[size]||1);
@@ -774,12 +995,14 @@ function runPredict() {
   document.getElementById('res-salary').textContent = '$'+salary.toLocaleString();
 
   const cluster = DATA.cluster_summary.find(c => c.cluster_label === match.cluster_label) || DATA.cluster_summary[0];
+  const matchLabel = mode === 'exact' ? 'Exact match' : 'Closest supported title';
 
   document.getElementById('res-meta').innerHTML = `
     <strong>${title}</strong><br>
     Experience: ${exp} &nbsp;·&nbsp; Company Size: ${size}<br>
     Range: $${(salary*0.85).toLocaleString()} – $${(salary*1.15).toLocaleString()}<br>
     <span class="cluster-badge">${cluster.cluster_label}</span>
+    <div class="match-badge ${mode}">${matchLabel}</div>
   `;
 
   banner.classList.add('show');
@@ -787,12 +1010,24 @@ function runPredict() {
   // Similar jobs
   const grid = document.getElementById('similar-grid');
   grid.innerHTML = '';
-  const similar = DATA.predictions.filter(p =>
-    (p.cluster === match.cluster || p.cluster_label === match.cluster_label) &&
-    p.experience_level === exp &&
-    p.job_title !== match.job_title
-  ).slice(0,6);
-  similar.forEach(p=>{
+  const similarPool = (DATA.predictions || [])
+    .filter(p =>
+      (p.cluster === match.cluster || p.cluster_label === match.cluster_label) &&
+      p.experience_level === exp &&
+      p.job_title !== match.job_title
+    )
+    .sort((a, b) => Math.abs(a.predicted_salary - match.predicted_salary) - Math.abs(b.predicted_salary - match.predicted_salary));
+
+  const uniqueSimilar = [];
+  const seenKeys = new Set();
+  similarPool.forEach(p => {
+    const key = `${p.job_title}|${p.experience_level}|${p.company_size}`;
+    if (seenKeys.has(key)) return;
+    seenKeys.add(key);
+    uniqueSimilar.push(p);
+  });
+
+  uniqueSimilar.slice(0,6).forEach(p=>{
     const card = document.createElement('div');
     card.className = 'sim-card';
     card.innerHTML = `
@@ -802,7 +1037,7 @@ function runPredict() {
     `;
     grid.appendChild(card);
   });
-  if (!similar.length) {
+  if (!uniqueSimilar.length) {
     grid.innerHTML = '<div class="loading">No similar roles found for that cluster and experience band.</div>';
   }
   document.getElementById('similar-section').style.display='block';

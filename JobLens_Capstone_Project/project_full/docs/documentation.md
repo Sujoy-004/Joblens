@@ -43,6 +43,8 @@ Two complementary models are trained:
 **Layer 3 — Frontend Dashboard (Static HTML/JS)**  
 A Vercel-deployable, zero-backend interface that reads the exported JSON and provides interactive salary prediction, cluster visualisation, and market analytics — all without a server.
 
+The current frontend payload exposes 2,536 cleaned roles, so the live hero copy, summary cards, and dataset exports all describe the same post-cleaning view of the data.
+
 ---
 
 ## 3. Architecture & Pipeline
@@ -101,6 +103,8 @@ A Vercel-deployable, zero-backend interface that reads the exported JSON and pro
 ### 4.1 Salary Predictor
 Users input a job title, experience level (EN/MI/SE/EX), and company size (S/M/L). The frontend performs a lookup against pre-computed prediction data and applies experience/size multipliers to estimate a personalised salary range. The result is displayed with a salary figure, confidence band, and assigned job cluster.
 
+The predictor only accepts supported titles from the exported dataset. If the user enters a vague, partial, or unsupported title, the interface shows a clear no-match message instead of fabricating a salary.
+
 ### 4.2 Similar Jobs Panel
 Post-prediction, a grid of similar roles within the same experience band is surfaced from the predictions dataset, giving users lateral market context.
 
@@ -118,6 +122,9 @@ Tabular breakdown of the 5 job clusters: count, mean salary, and average remote 
 
 ### 4.7 Demo Mode
 If the JSON output file is unavailable (e.g. Vercel cold deployment), the frontend seamlessly falls back to built-in representative demo data — ensuring the interface is always functional.
+
+### 4.8 Input Validation & No-Match Handling
+The frontend normalises title casing, rejects empty input, and limits predictions to known titles from the exported dataset. When an exact experience-size combination is unavailable, the app uses the closest supported row for the same title and marks it as a closest-match response. This keeps the demo honest during viva questions.
 
 ---
 
@@ -189,6 +196,18 @@ If the JSON output file is unavailable (e.g. Vercel cold deployment), the fronte
 | Medium | Time-series salary trend analysis | Seasonal & YoY salary movement per role |
 | Low | Add LinkedIn/Indeed API data ingestion | Real-time market signal integration |
 | Low | Role comparison view | Side-by-side salary comparison for 2–3 selected roles |
+
+---
+
+## 9. Quick Viva Answers
+
+1. **Why this dataset?** It has structured salary data with role, experience, company size, and remote ratio, which is suitable for both regression and clustering.
+2. **Why Gradient Boosting?** It handles tabular data well, captures nonlinear effects, and gives stronger results than a naive linear baseline here.
+3. **Why K-Means?** It produces simple, explainable job archetypes that can be visualised and described during a viva.
+4. **What does MAE mean?** Mean Absolute Error is the average absolute difference between predicted and actual salary, so lower is better.
+5. **Why PCA in the dashboard?** PCA compresses the cluster features into 2D so the job groups can be shown clearly in the browser.
+6. **What are the limitations?** The prediction layer is still lookup-driven and depends on the quality and coverage of the training data.
+7. **What would you improve next?** Add live inference, larger data coverage, and explainability output such as SHAP.
 
 ---
 
