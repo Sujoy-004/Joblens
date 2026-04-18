@@ -199,17 +199,5 @@ The frontend normalises title casing, rejects empty input, and limits prediction
 
 ---
 
-## 9. Quick Viva Answers
-
-1. **Why this dataset?** It has structured salary data with role, experience, company size, and remote ratio, which is suitable for both regression and clustering.
-2. **Why Gradient Boosting?** It handles tabular data well, captures nonlinear effects, and gives stronger results than a naive linear baseline here.
-3. **Why K-Means?** It produces simple, explainable job archetypes that can be visualised and described during a viva.
-4. **What does MAE mean?** Mean Absolute Error is the average absolute difference between predicted and actual salary, so lower is better.
-5. **Why PCA in the dashboard?** PCA compresses the cluster features into 2D so the job groups can be shown clearly in the browser.
-6. **What are the limitations?** The prediction layer is still lookup-driven and depends on the quality and coverage of the training data.
-7. **What would you improve next?** Add live inference, larger data coverage, and explainability output such as SHAP.
-
----
-
 *End of Documentation*  
 *JobLens Capstone Project | B.Tech CSE | Data Engineering + Data Science*
