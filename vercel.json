@@ -1,9 +1,12 @@
 {
-  "redirects": [
+  "rewrites": [
     {
       "source": "/",
-      "destination": "/JobLens_Capstone_Project/project_full/frontend/index.html",
-      "permanent": false
+      "destination": "/JobLens_Capstone_Project/project_full/frontend/index.html"
+    },
+    {
+      "source": "/dashboard_data.json",
+      "destination": "/JobLens_Capstone_Project/project_full/frontend/dashboard_data.json"
     }
   ]
 }

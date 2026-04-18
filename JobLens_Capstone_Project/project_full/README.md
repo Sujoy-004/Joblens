@@ -53,9 +53,9 @@ Run all cells top to bottom. Outputs are saved automatically.
 - Live deployment: [https://joblens-ochre.vercel.app](https://joblens-ochre.vercel.app)
 - Connect the repository root to [Vercel](https://vercel.com)
 - Keep the default static deploy settings; no build command is required
-- The root `index.html` and `vercel.json` redirect visitors to the deployable frontend at `/JobLens_Capstone_Project/project_full/frontend/index.html`
-- The app loads `dashboard_data.json` from the same folder, so the deployed URL keeps its relative data fetch working
-- OR open `JobLens_Capstone_Project/project_full/frontend/index.html` directly in a browser (demo mode with built-in data)
+- The root `vercel.json` rewrites `/` and `/dashboard_data.json` to the deployable frontend at `/JobLens_Capstone_Project/project_full/frontend/index.html`
+- The app still loads `dashboard_data.json` from the frontend folder, but the rewrite keeps the public URL clean and the relative fetch working
+- For a local demo, open `JobLens_Capstone_Project/project_full/frontend/index.html` directly in a browser
 
 The notebook writes `dashboard_data.json` into both `/outputs/` and `/frontend/`, so the deployed static site can load the real data without a backend.
 
