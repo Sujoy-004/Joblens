@@ -62,6 +62,8 @@ Run all cells top to bottom to regenerate the CSV and JSON outputs in [data](dat
 
 This project is deployed as a static site with Vercel. The active routing in [vercel.json](vercel.json) rewrites `/` to [frontend/index.html](frontend/index.html) and `/dashboard_data.json` to [frontend/dashboard_data.json](frontend/dashboard_data.json).
 
+Live deployment: [joblens-sujoys-projects-01c97fec.vercel.app](https://joblens-sujoys-projects-01c97fec.vercel.app)
+
 For local testing, open [frontend/index.html](frontend/index.html) directly in a browser. Keep [frontend/index.html](frontend/index.html) and [frontend/dashboard_data.json](frontend/dashboard_data.json) together, because the page fetches the JSON with a relative path.
 
 ## Models
