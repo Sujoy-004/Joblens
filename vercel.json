@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/JobLens_Capstone_Project/project_full/frontend/index.html"
+      "destination": "/frontend/index.html"
     },
     {
       "source": "/dashboard_data.json",
-      "destination": "/JobLens_Capstone_Project/project_full/frontend/dashboard_data.json"
+      "destination": "/frontend/dashboard_data.json"
     }
   ]
 }
